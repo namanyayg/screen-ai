@@ -2,9 +2,8 @@ import sys
 import os
 import requests
 import base64
-import pyautogui
 import math
-# from vapi_python import Vapi
+from vapi_python import Vapi
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QShortcut
 from PyQt5.QtGui import QPainter, QBrush, QPen, QColor, QKeySequence, QPainterPath
 from PyQt5.QtCore import Qt, QTimer
@@ -19,19 +18,20 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         vapi_api_key = os.getenv('VAPI_API_KEY')
-        # self.vapi = Vapi(api_key=vapi_api_key)
+        self.vapi = Vapi(api_key=vapi_api_key)
         self.state = 'idle'  # Possible states: 'loading', 'talking', 'idle'
         self.pulse_timer = None
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle('Omnilens')
-        self.setGeometry(100, 100, 800, 600)
+        self.setWindowTitle('ggg-4o')
+        self.setGeometry(100, 100, 300, 300)
         self.show()
 
         # Shortcut to trigger screenshot and OCR
         self.shortcut = QShortcut(QKeySequence('Ctrl+Shift+O'), self)
         self.shortcut.activated.connect(self.take_screenshot_and_ocr)
+        # self.take_screenshot_and_ocr()
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -39,17 +39,19 @@ class MainWindow(QMainWindow):
         painter.setPen(QPen(Qt.black, 8, Qt.SolidLine))
         painter.setBrush(QBrush(Qt.black, Qt.SolidPattern))
 
-        if self.state == 'loading':
-            painter.drawRect(350, 250, 100, 100)  # Draw a square
-        elif self.state == 'talking':
+        center_x = 150  # Fixed center x-coordinate
+        center_y = 150  # Fixed center y-coordinate
+
+        # if self.state == 'loading':
+            # painter.drawRect(350, 250, 100, 100)  # Draw a square
+        if self.state == 'talking':
             # Draw a pulsating circle with smooth easing animation
             radius_variation = 10 * (1 + math.sin(self.pulse_frame * math.pi / 100))
             radius = 120 + radius_variation
-            center_x = 400  # Fixed center x-coordinate
-            center_y = 300  # Fixed center y-coordinate
             painter.drawEllipse(int(center_x - radius / 2), int(center_y - radius / 2), int(radius), int(radius))
         else:
-            painter.drawEllipse(350, 250, 120, 120)
+            radius = 120
+            painter.drawEllipse(int(center_x - radius / 2), int(center_y - radius / 2), int(radius), int(radius))
 
     def update_state(self, new_state):
         self.state = new_state
@@ -69,16 +71,15 @@ class MainWindow(QMainWindow):
             self.pulse_frame = 0
         self.update()
 
-    def take_screenshot(self):
+    def take_and_save_screenshot(self):
         # Take screenshot using pyautogui
-        screenshot = pyautogui.screenshot()
-        return screenshot
-
-    def save_screenshot(self, screenshot):
-        # Save the screenshot to a file
-        screenshot_path = 'screenshot.png'
-        screenshot.save(screenshot_path)
-        return screenshot_path
+        os.system("""
+            powershell.exe \"
+                Add-Type -AssemblyName System.Windows.Forms
+                [Windows.Forms.Sendkeys]::SendWait('+{Prtsc}')
+                \$img = [Windows.Forms.Clipboard]::GetImage()
+                \$img.Save(\\\"C:\\NamanyayG\\Work\\omnilens\\screenshot.jpg\\\", [Drawing.Imaging.ImageFormat]::Jpeg)\"
+        """)
 
     def perform_ocr(self, screenshot_path):
         # Send the screenshot to OpenAI for OCR
@@ -122,14 +123,15 @@ class MainWindow(QMainWindow):
                 "screendata": screen_data
             }
         }
-        # self.vapi.start(assistant_id=VAPI_ASSISTANT_ID, assistant_overrides=assistant_overrides)
+        self.vapi.start(assistant_id=VAPI_ASSISTANT_ID, assistant_overrides=assistant_overrides)
 
     def take_screenshot_and_ocr(self):
+        print("Starting!")
         self.update_state('loading')
-        screenshot = self.take_screenshot()
-        screenshot_path = self.save_screenshot(screenshot)
-        # screen_data = self.perform_ocr(screenshot_path)
-        screen_data = "Hello, world!"
+        screenshot = self.take_and_save_screenshot()
+        screenshot_path = './screenshot.jpg'
+        screen_data = self.perform_ocr(screenshot_path)
+        # screen_data = "Hello, world!"
         self.update_state('talking')
         self.start_vapi(screen_data)
         # Print the OCR result
